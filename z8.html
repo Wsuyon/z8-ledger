@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0ea5a3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Z8记账">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Z8 记账</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--text:#1a1d21;--text-2:#6b7280;--text-3:#9ca3af;--border:#eceef1;--accent:#0ea5a3;--accent-soft:#e6f6f5;--income:#10b981;--income-soft:#e8f9f1;--expense:#f43f5e;--expense-soft:#fdeef1;--radius:14px;--shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.topbar{position:sticky;top:0;z-index:20;background:rgba(244,245,247,.92);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border)}
+.topbar-inner{max-width:1080px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px}
+.brand{font-size:17px;font-weight:700;letter-spacing:-.02em}.brand .dot{color:var(--accent)}
+.nav{margin-left:auto;display:flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:3px}
+.nav button{text-decoration:none;color:var(--text-2);font-size:14px;font-weight:500;padding:6px 14px;border-radius:8px;border:none;background:transparent;cursor:pointer;transition:all .15s}
+.nav button.active{background:var(--text);color:#fff}
+.gear{border:none;background:transparent;font-size:18px;cursor:pointer;color:var(--text-2);padding:4px}
+.app{max-width:1080px;margin:0 auto;padding:0 16px 110px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-top:14px}
+.card-title{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .hint{font-size:12px;font-weight:400;color:var(--text-3);margin-left:auto}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.stat .label{font-size:12px;color:var(--text-2)}.stat .value{font-size:20px;font-weight:700;margin-top:4px}
+.stat .value.income{color:var(--income)}.stat .value.expense{color:var(--expense)}.stat .value.accent{color:var(--accent)}
+.stat .sub{font-size:11px;color:var(--text-3);margin-top:2px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--text);font-size:14px;font-weight:500;padding:8px 14px;border-radius:10px;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:#d1d5db;background:#fafafa}
+.btn.primary{background:var(--text);color:#fff;border-color:var(--text)}
+.btn.danger{color:var(--expense);border-color:#fecdd3}
+.btn.danger:hover{background:var(--expense-soft)}
+.btn.sm{padding:5px 10px;font-size:13px;border-radius:8px}
+.btn.block{width:100%;padding:12px;font-size:16px}
+.field{margin-bottom:12px}.field label{display:block;font-size:13px;color:var(--text-2);margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:15px;font-family:inherit;color:var(--text);background:#fff}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field textarea{resize:vertical;min-height:60px}
+.field-row{display:flex;gap:10px}.field-row .field{flex:1}
+.seg{display:flex;background:#eef0f3;border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border:none;background:transparent;padding:10px;border-radius:9px;font-size:15px;font-weight:600;color:var(--text-2);cursor:pointer}
+.seg button.active{background:#fff;color:var(--text);box-shadow:var(--shadow)}
+.seg button.active.expense{color:var(--expense)}.seg button.active.income{color:var(--income)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--text-2)}
+.chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chip.sel{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px}
+.tl-item{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border);cursor:pointer}
+.tl-item:last-child{border-bottom:none}
+.tl-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.tl-main{flex:1;min-width:0}.tl-title{font-size:15px;font-weight:600}.tl-title .cat{color:var(--text-2);font-weight:500;font-size:13px}
+.tl-meta{font-size:12px;color:var(--text-3);margin-top:2px}
+.tl-amount{font-size:16px;font-weight:700;white-space:nowrap}.tl-amount.income{color:var(--income)}.tl-amount.expense{color:var(--expense)}
+.acct-item{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:1px solid var(--border)}
+.acct-item:last-child{border-bottom:none}
+.acct-avatar{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:#f0f1f4}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;margin-left:6px}
+.badge.active{background:#fff7e6;color:#d97706}.badge.settled{background:var(--income-soft);color:var(--income)}.badge.bad_debt{background:var(--expense-soft);color:var(--expense)}
+.empty{text-align:center;color:var(--text-3);padding:32px 16px;font-size:14px}
+.thumb-row{display:flex;gap:8px;flex-wrap:wrap}
+.thumb{width:72px;height:72px;border-radius:10px;object-fit:cover;border:1px solid var(--border)}
+.thumb.lg{width:100%;height:auto}
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.modal{background:#fff;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:20px 20px 0 0;padding:20px 20px 32px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.modal-title{font-size:17px;font-weight:700}
+.close-x{border:none;background:#f0f1f4;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--text-2)}
+.legend-row{display:flex;align-items:center;justify-content:space-between;padding:6px 2px;border-bottom:1px solid var(--border)}
+.legend-dot{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:8px}
+.footer{text-align:center;color:var(--text-3);font-size:12px;padding:20px 0 8px}
+.hidden{display:none!important}
+.muted{color:var(--text-2)}
+.mt-8{margin-top:8px}.mt-12{margin-top:12px}
+.flex{display:flex;align-items:center;gap:8px}.spread{justify-content:space-between}
+svg.chart{width:100%;height:auto;display:block}
+.hero{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 16px 16px;margin-top:14px;position:relative}
+.hero .hl{font-size:13px;color:var(--text-2)}
+.hero .hv{font-size:36px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+.hero .hv.pos{color:var(--income)}.hero .hv.neg{color:var(--expense)}
+.hero .hsub{font-size:12px;color:var(--text-3);margin-top:2px}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.mini{background:#f8f9fa;border-radius:10px;padding:10px 12px}
+.mini .label{font-size:11px;color:var(--text-2)}
+.mini .value{font-size:16px;font-weight:700;margin-top:2px}
+.mini .value.expense{color:var(--expense)}.mini .value.income{color:var(--income)}.mini .value.accent{color:var(--accent)}
+.hero-entry{position:absolute;top:12px;right:12px}
+.fab{position:fixed;right:20px;bottom:28px;z-index:30;width:58px;height:58px;border-radius:50%;background:var(--text);color:#fff;border:none;font-size:30px;line-height:1;box-shadow:0 6px 20px rgba(16,24,40,.28);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.fab:active{transform:scale(.94)}
+.side-mask{position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+.side-mask.show{opacity:1;pointer-events:auto}
+.side-panel{position:fixed;top:0;right:0;bottom:0;width:88%;max-width:420px;background:#fff;z-index:51;transform:translateX(100%);transition:transform .25s;box-shadow:-8px 0 30px rgba(16,24,40,.12);display:flex;flex-direction:column}
+.side-panel.show{transform:translateX(0)}
+.side-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border)}
+.side-head .title{font-size:17px;font-weight:700}
+.side-body{padding:16px;overflow-y:auto;flex:1}
+.acct-actions{display:flex;gap:6px;margin-top:4px;justify-content:flex-end;flex-wrap:wrap}
+.span-row{display:flex;gap:6px;flex-wrap:wrap}
+@media(min-width:720px){.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.two-col .card{margin-top:14px}.mask{align-items:center}.modal{border-radius:20px}.fab{right:calc(50% - 540px + 20px)}}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-inner">
+  <div class="brand">Z8<span class="dot">·</span>记账</div>
+  <nav class="nav">
+    <button id="navLedger" class="active" onclick="switchPage('ledger')">记账</button>
+    <button id="navAssets" onclick="switchPage('assets')">资产</button>
+  </nav>
+  <button class="gear" onclick="openSettings()" title="设置">⚙️</button>
+</div></header>
+
+<main class="app">
+  <section id="page-ledger"></section>
+  <section id="page-assets" class="hidden"></section>
+  <div class="footer">数据保存在本机浏览器 · <a href="#" onclick="openBackup(event)" style="color:var(--accent)">导出备份</a> · <a href="#" onclick="openImport(event)" style="color:var(--accent)">导入</a></div>
+</main>
+<div id="modalRoot"></div>
+<div id="sideRoot"></div>
+<button class="fab" id="fab" onclick="openAddTx()">＋</button>
+
+<script>
+/* ============ 存储层（IndexedDB，失败自动回退 localStorage） ============ */
+const DB_NAME='z8-ledger', DB_VER=1
+let db=null
+let backend='idb'
+const STORES=['accounts','loans','transactions','transfers','snapshots','categories','images']
+const LKEY=n=>'z8-store-'+n
+
+async function initStorage(){
+  try{
+    await new Promise((res,rej)=>{
+      const r=indexedDB.open(DB_NAME,DB_VER)
+      r.onupgradeneeded=e=>{const d=e.target.result;STORES.forEach(n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'id',autoIncrement:true})})}
+      r.onsuccess=()=>{db=r.result;res()}
+      r.onerror=()=>rej(r.error||new Error('idb open failed'))
+      r.onblocked=()=>rej(new Error('idb blocked'))
+    })
+    backend='idb'
+  }catch(e){
+    backend='local'
+  }
+}
+
+function idbGet(name,id){return new Promise((res,rej)=>{const r=db.transaction(name,'readonly').objectStore(name).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function idbAll(name){return new Promise((res,rej)=>{const r=db.transaction(name,'readonly').objectStore(name).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function idbPut(name,obj){return new Promise((res,rej)=>{const r=db.transaction(name,'readwrite').objectStore(name).put(obj);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function idbDel(name,id){return new Promise((res,rej)=>{const r=db.transaction(name,'readwrite').objectStore(name).delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+function idbClear(name){return new Promise((res,rej)=>{const r=db.transaction(name,'readwrite').objectStore(name).clear();r.onsuccess=res;r.onerror=()=>rej(r.error)})}
+
+function localAll(name){try{return JSON.parse(localStorage.getItem(LKEY(name))||'[]')}catch(e){return []}}
+function localPut(name,obj){
+  const arr=localAll(name)
+  const o={...obj}
+  if(o.id==null){
+    o.id=arr.reduce((m,x)=>Math.max(m,x.id||0),0)+1
+    arr.push(o)
+  }else{
+    const i=arr.findIndex(x=>x.id===o.id)
+    if(i>=0)arr[i]=o;else arr.push(o)
+  }
+  try{localStorage.setItem(LKEY(name),JSON.stringify(arr))}
+  catch(e){throw new Error('本地存储空间不足（图片过多）。请导出备份后删除部分凭证图片，或用 Chrome 浏览器。')}
+  return Promise.resolve(o.id)
+}
+function localDel(name,id){
+  localStorage.setItem(LKEY(name),JSON.stringify(localAll(name).filter(x=>x.id!==id)))
+  return Promise.resolve()
+}
+function localClear(name){localStorage.removeItem(LKEY(name));return Promise.resolve()}
+
+function all(name){return backend==='idb'?idbAll(name):Promise.resolve(localAll(name))}
+function get(name,id){return backend==='idb'?idbGet(name,id):Promise.resolve(localAll(name).find(x=>x.id===id))}
+function put(name,obj){return backend==='idb'?idbPut(name,obj):localPut(name,obj)}
+function del(name,id){return backend==='idb'?idbDel(name,id):localDel(name,id)}
+function clear(name){return backend==='idb'?idbClear(name):localClear(name)}
+
+/* ============ 设置（localStorage） ============ */
+function getSettings(){try{return Object.assign({periodStartDay:1,defaultBeneficiary:''},JSON.parse(localStorage.getItem('z8-settings')||'{}'))}catch(e){return {periodStartDay:1,defaultBeneficiary:''}}}
+function saveSettings(s){localStorage.setItem('z8-settings',JSON.stringify(s))}
+
+/* ============ 工具 ============ */
+const yuan2fen=y=>Math.round(Number(y)*100)
+const fen2yuan=f=>(Number(f)||0)/100
+function fmtYuan(f){return fen2yuan(f).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtPct(r){return r==null?'—':(r*100).toFixed(1)+'%'}
+function pad2(n){return String(n).padStart(2,'0')}
+function fmtDate(d){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`}
+function nowLocal(){const d=new Date();return `${fmtDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`}
+function todayStr(){return fmtDate(new Date())}
+function shortDate(s){if(!s)return'';const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${Number(m[2])}月${Number(m[3])}日`:s}
+function timeOnly(s){return s?s.slice(11,16):''}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+/* ============ 预置分类 ============ */
+const DEFAULT_CATS=[
+ ['餐饮','expense','#f59e0b','🍜'],['交通','expense','#3b82f6','🚌'],['购物','expense','#ec4899','🛍️'],['居住','expense','#8b5cf6','🏠'],['娱乐','expense','#06b6d4','🎮'],['医疗','expense','#ef4444','💊'],['人情','expense','#f97316','🎁'],['借出','expense','#14b8a6','🤝'],['其他','expense','#64748b','📦'],
+ ['工资','income','#10b981','💰'],['奖金','income','#22c55e','🏆'],['理财收益','income','#84cc16','📈'],['收回借款','income','#14b8a6','↩️'],['其他收入','income','#64748b','💵']]
+async function seedCats(){const c=await all('categories');if(c.length===0){for(const x of DEFAULT_CATS)await put('categories',{name:x[0],kind:x[1],color:x[2],icon:x[3]})}}
+
+/* ============ 周期 / 业务逻辑 ============ */
+function periodRange(date,startDay){
+  startDay=Math.min(28,Math.max(1,Number(startDay)||1))
+  const d=new Date(date+'T00:00:00')
+  const start=(d.getDate()>=startDay)?new Date(d.getFullYear(),d.getMonth(),startDay):new Date(d.getFullYear(),d.getMonth()-1,startDay)
+  const end=new Date(start.getFullYear(),start.getMonth()+1,startDay)
+  return {start:fmtDate(start),end:fmtDate(end)}
+}
+async function getData(){
+  const [accounts,loans,transactions,transfers,snapshots,categories]=await Promise.all(STORES.slice(0,6).map(all))
+  return {accounts,loans,transactions,transfers,snapshots,categories}
+}
+function computeBalances(d){
+  const m=new Map()
+  for(const a of d.accounts){
+    let bal=a.initial_amount||0
+    for(const t of d.transfers){if(t.to_account_id===a.id)bal+=t.amount;if(t.from_account_id===a.id)bal-=t.amount}
+    for(const t of d.transactions){if(t.account_id===a.id){bal+=t.type==='income'?t.amount:-t.amount}}
+    m.set(a.id,{...a,flow_balance:bal,balance:bal,latest_snapshot:null,loan:null,snaps:null})
+  }
+  for(const s of d.snapshots){const a=m.get(s.account_id);if(a){a.snaps=(a.snaps||[]);a.snaps.push(s)}}
+  for(const a of m.values()){if(a.snaps&&a.snaps.length){a.snaps.sort((x,y)=>x.recorded_at.localeCompare(y.recorded_at)||x.id-y.id);a.latest_snapshot=a.snaps[a.snaps.length-1].value}}
+  for(const l of d.loans){const a=m.get(l.account_id);if(a){a.loan=l;l.account=a;l.accrued=accruedInterest(l);const outstanding=l.principal-(l.settled_amount||0);a.balance=(l.status==='active')?(l.direction==='out'?outstanding:-outstanding):0}}
+  for(const a of m.values()){if(!a.loan && a.current_value!=null)a.balance=a.current_value}
+  return m
+}
+function accruedInterest(l){const start=new Date(l.lent_at).getTime(),end=Date.now();const years=(end-start)/(365.25*24*3600*1000);return Math.max(0,Math.round((l.principal*(l.interest_rate||0)/100)*years))}
+function assetSummary(accts){
+  let total=0;const byType={savings:0,investment:0,loan_out:0,loan_in:0,cash:0,other:0}
+  for(const a of accts){
+    if(a.archived)continue
+    if(a.type==='loan_out'&&a.loan&&a.loan.status==='bad_debt')continue
+    total+=a.balance;byType[a.type]=(byType[a.type]||0)+a.balance
+  }
+  return {total,byType}
+}
+function summary(transactions,date,startDay){
+  const {start,end}=periodRange(date,startDay)
+  let ti=0,te=0,pi=0,pe=0,ti_all=0,te_all=0
+  for(const t of transactions){
+    const h=t.happened_at.slice(0,10)
+    if(t.type==='income'){
+      ti_all+=t.amount
+      if(h===date)ti+=t.amount
+      if(h>=start&&h<end)pi+=t.amount
+    }else{
+      te_all+=t.amount
+      if(h===date)te+=t.amount
+      if(h>=start&&h<end)pe+=t.amount
+    }
+  }
+  return {start,end,todayIncome:ti,todayExpense:te,periodIncome:pi,periodExpense:pe,periodBalance:pi-pe,savingsRate:pi>0?(pi-pe)/pi:null,totalBalance:ti_all-te_all}
+}
+function breakdown(transactions,range,by){
+  const {start,end}=range,map=new Map()
+  for(const t of transactions){
+    if(t.type!=='expense')continue
+    const h=t.happened_at.slice(0,10)
+    if(h<start||h>=end)continue
+    const k=(by==='beneficiary'?(t.beneficiary||'未分类'):(t.category||'未分类'))
+    if(!map.has(k))map.set(k,{name:k,total:0,count:0})
+    const e=map.get(k);e.total+=t.amount;e.count++
+  }
+  const items=[...map.values()].sort((a,b)=>b.total-a.total)
+  return {by,start,end,grand:items.reduce((a,i)=>a+i.total,0),items}
+}
+function dailyBalances(transactions){
+  const byDate=new Map()
+  for(const t of transactions){
+    const d=t.happened_at.slice(0,10)
+    if(!byDate.has(d))byDate.set(d,{income:0,expense:0})
+    const e=byDate.get(d)
+    if(t.type==='income')e.income+=t.amount;else e.expense+=t.amount
+  }
+  const dates=[...byDate.keys()].sort()
+  let bal=0
+  const arr=dates.map(d=>{const e=byDate.get(d);bal+=e.income-e.expense;return {date:d,balance:bal,income:e.income,expense:e.expense}})
+  const td=todayStr()
+  if(arr.length&&arr[arr.length-1].date<td)arr.push({date:td,balance:arr[arr.length-1].balance,income:0,expense:0})
+  return arr
+}
+function beneficiarySuggestions(transactions){
+  const sorted=[...transactions].sort((a,b)=>b.happened_at.localeCompare(a.happened_at))
+  const seen=new Set(),list=[]
+  for(const t of sorted){if(t.type!=='expense'||!t.beneficiary)continue;if(!seen.has(t.beneficiary)){seen.add(t.beneficiary);list.push(t.beneficiary)}}
+  return list.slice(0,8)
+}
+
+/* ============ SVG 图表 ============ */
+function donutSVG(items,size=170,irRatio=0.62){
+  const total=items.reduce((a,i)=>a+i.value,0)
+  if(total<=0)return '<div class="empty">暂无数据</div>'
+  const cx=size/2,cy=size/2,r=size/2-2,ir=r*irRatio
+  let angle=-Math.PI/2,paths=''
+  for(const i of items){
+    const a1=angle,a2=angle+(i.value/total)*Math.PI*2;angle=a2
+    const la=a2-a1>Math.PI?1:0
+    const x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2)
+    const ix1=cx+ir*Math.cos(a2),iy1=cy+ir*Math.sin(a2),ix2=cx+ir*Math.cos(a1),iy2=cy+ir*Math.sin(a1)
+    paths+=`<path d="M ${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${ir} ${ir} 0 ${la} 0 ${ix2} ${iy2} Z" fill="${i.color}"/>`
+  }
+  return `<svg class="chart" viewBox="0 0 ${size} ${size}" style="max-height:${size}px">${paths}</svg>`
+}
+function niceScale(min,max){
+  const range=max-min
+  if(range<=0){const pad=Math.abs(max)*0.1||100;return {min:min-pad,max:max+pad}}
+  const rough=range/4
+  const mag=Math.pow(10,Math.floor(Math.log10(rough)))
+  const norm=rough/mag
+  let step
+  if(norm<1.5)step=mag;else if(norm<3)step=2*mag;else if(norm<7)step=5*mag;else step=10*mag
+  return {min:Math.floor(min/step)*step,max:Math.ceil(max/step)*step,step}
+}
+function fmtAxis(v){const y=v/100;if(Math.abs(y)>=10000)return (y/10000).toFixed(1)+'万';return String(Math.round(y))}
+function lineChartSVG(series,opts={}){
+  const fill=opts.fill||false,H=opts.height||220
+  const dates=[...new Set(series.flatMap(s=>s.points.map(p=>p.date)))].sort()
+  if(dates.length===0)return '<div class="empty">暂无数据</div>'
+  const rows=dates.map(date=>{const row={date};series.forEach(s=>{let v=null;for(const p of s.points){if(p.date<=date)v=p.value;else break}row[s.name]=v});return row})
+  const allVals=rows.flatMap(r=>series.map(s=>r[s.name]).filter(v=>v!=null))
+  if(allVals.length===0)return '<div class="empty">暂无数据</div>'
+  const dMin=Math.min(...allVals),dMax=Math.max(...allVals)
+  const pad=(dMax-dMin)*0.1||Math.abs(dMax)*0.1||100
+  const sc=niceScale(dMin-pad,dMax+pad)
+  const W=360,pl=48,pr=12,pt=10,pb=26
+  const xFor=i=>pl+(dates.length===1?0:i*(W-pl-pr)/(dates.length-1))
+  const yFor=v=>pt+(sc.max-v)/(sc.max-sc.min)*(H-pt-pb)
+  let grid='',ylabels=''
+  const ticks=[]
+  for(let v=sc.min;v<=sc.max+0.001;v+=sc.step)ticks.push(v)
+  ticks.forEach(v=>{const y=yFor(v);grid+=`<line x1="${pl}" y1="${y}" x2="${W-pr}" y2="${y}" stroke="#eef0f3" stroke-dasharray="3 3"/>`;ylabels+=`<text x="${pl-6}" y="${y+4}" font-size="10" fill="#9ca3af" text-anchor="end">${fmtAxis(v)}</text>`})
+  const tick=dates.length>6?Math.ceil(dates.length/5):1
+  let xlabels=''
+  dates.forEach((d,i)=>{if(i%tick===0||i===dates.length-1)xlabels+=`<text x="${xFor(i)}" y="${H-8}" font-size="10" fill="#9ca3af" text-anchor="middle">${d.slice(5)}</text>`})
+  const lines=series.map(s=>{
+    const pts=rows.map((r,i)=>({x:xFor(i),y:r[s.name]==null?null:yFor(r[s.name])}))
+    let d='',prevX=null,prevY=null
+    for(const p of pts){if(p.y==null){prevX=prevY=null;continue}d+=(prevX==null?`M ${p.x} ${p.y}`:` L ${p.x} ${p.y}`);prevX=p.x;prevY=p.y}
+    const dots=pts.filter(p=>p.y!=null).map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3" fill="${s.color}"/>`).join('')
+    let area=''
+    if(fill){
+      const first=pts.find(p=>p.y!=null),last=[...pts].reverse().find(p=>p.y!=null)
+      if(first&&last){const base=yFor(sc.min);area=`<path d="${d} L ${last.x} ${base} L ${first.x} ${base} Z" fill="${s.color}" opacity="0.12"/>`}
+    }
+    return area+`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2"/>${dots}`
+  }).join('')
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${grid}${ylabels}${xlabels}${lines}</svg>`
+}
+function balanceLineSVG(transactions,spanDays){
+  const daily=dailyBalances(transactions)
+  if(daily.length===0)return '<div class="empty">暂无数据</div>'
+  let points=daily.map(d=>({date:d.date,value:d.balance}))
+  if(spanDays){
+    const cut=new Date();cut.setDate(cut.getDate()-(spanDays-1))
+    const cutStr=fmtDate(cut)
+    points=points.filter(p=>p.date>=cutStr)
+  }
+  if(points.length===0)return '<div class="empty">该时间跨度暂无数据</div>'
+  return lineChartSVG([{name:'结余',color:'#0ea5a3',points}],{fill:true,height:230})
+}
+
+/* ============ 页面切换 ============ */
+let currentPage='ledger'
+let ledgerDate=todayStr()
+let ledgerType='expense', ledgerCat='', breakdownBy='category', loanTab='active', sideView='structure', balanceSpan=0
+let ledgerAmount='', ledgerBen='', ledgerNote='', ledgerAcct=''
+let editId=null, editType='expense', editAmount='', editCat='', editBen='', editNote=''
+
+function switchPage(p){
+  currentPage=p
+  document.getElementById('navLedger').classList.toggle('active',p==='ledger')
+  document.getElementById('navAssets').classList.toggle('active',p==='assets')
+  document.getElementById('page-ledger').classList.toggle('hidden',p!=='ledger')
+  document.getElementById('page-assets').classList.toggle('hidden',p!=='assets')
+  document.getElementById('fab').classList.toggle('hidden',p!=='ledger')
+  if(p==='ledger')renderLedger();else renderAssets()
+}
+
+/* ============ 弹窗 ============ */
+function showModal(html){document.getElementById('modalRoot').innerHTML=`<div class="mask" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`}
+function closeModal(){document.getElementById('modalRoot').innerHTML=''}
+
+/* ============ 记账页 ============ */
+async function renderLedger(){
+  const d=await getData()
+  const set=getSettings()
+  const cats=d.categories, tx=d.transactions
+  const s=summary(tx,ledgerDate,set.periodStartDay)
+  const iconMap={};cats.forEach(c=>{iconMap[c.name]=c.icon})
+  const dayTx=tx.filter(t=>t.happened_at.slice(0,10)===ledgerDate).sort((a,b)=>b.happened_at.localeCompare(a.happened_at)||b.id-a.id)
+  const plabel=set.periodStartDay===1?'本月结余':`本期结余（${set.periodStartDay}号起）`
+
+  document.getElementById('page-ledger').innerHTML=`
+    <div class="hero">
+      <button class="btn sm hero-entry" onclick="openBreakdown()">📊 结构/走势</button>
+      <div class="hl">${plabel}</div>
+      <div class="hv ${s.periodBalance>=0?'pos':'neg'}">¥${fmtYuan(s.periodBalance)}</div>
+      <div class="hsub">累计结余 ¥${fmtYuan(s.totalBalance)}</div>
+      <div class="mini-grid">
+        <div class="mini"><div class="label">当日支出</div><div class="value expense">¥${fmtYuan(s.todayExpense)}</div></div>
+        <div class="mini"><div class="label">本期支出</div><div class="value expense">¥${fmtYuan(s.periodExpense)}</div></div>
+        <div class="mini"><div class="label">本期收入</div><div class="value income">¥${fmtYuan(s.periodIncome)}</div></div>
+        <div class="mini"><div class="label">储蓄率</div><div class="value accent">${fmtPct(s.savingsRate)}</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">流水<span class="hint">点击条目可编辑/删除</span>
+        <span class="flex" style="margin-left:auto;gap:6px">
+          <button class="btn sm" onclick="shiftLedgerDay(-1)">‹</button>
+          <input type="date" value="${ledgerDate}" onchange="ledgerDate=this.value;renderLedger()" style="border:none;background:transparent;font-size:14px;font-weight:600;width:118px;text-align:center">
+          <button class="btn sm" onclick="shiftLedgerDay(1)">›</button>
+          <button class="btn sm" onclick="ledgerDate=todayStr();renderLedger()">今天</button>
+        </span>
+      </div>
+      ${dayTx.length===0?'<div class="empty">当天还没有记录</div>':dayTx.map(t=>`
+        <div class="tl-item" onclick="openEditTx(${t.id})">
+          <div class="tl-icon" style="background:${t.type==='expense'?'var(--expense-soft)':'var(--income-soft)'}">${iconMap[t.category]||(t.type==='expense'?'💸':'💰')}</div>
+          <div class="tl-main"><div class="tl-title">${esc(t.category)}<span class="cat"> ${esc(t.beneficiary||'')}</span></div>
+          <div class="tl-meta">${timeOnly(t.happened_at)}${t.account?' · '+esc(t.account.name):''}${t.note?' · '+esc(t.note):''}</div></div>
+          <div class="tl-amount ${t.type}">${t.type==='expense'?'-':'+'}¥${fmtYuan(t.amount)}</div>
+        </div>`).join('')}
+    </div>`
+}
+function shiftLedgerDay(n){const d=new Date(ledgerDate+'T00:00:00');d.setDate(d.getDate()+n);ledgerDate=fmtDate(d);renderLedger()}
+
+/* 记一笔（悬浮按钮） */
+async function openAddTx(){
+  const d=await getData()
+  const set=getSettings()
+  const kindCats=d.categories.filter(c=>c.kind===ledgerType)
+  const expAccts=d.accounts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived)
+  const suggs=ledgerType==='expense'?beneficiarySuggestions(d.transactions):[]
+  showModal(`
+    <div class="modal-head"><div class="modal-title">记一笔</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="seg">
+      <button class="${ledgerType==='expense'?'active expense':''}" onclick="setLedgerType('expense')">支出</button>
+      <button class="${ledgerType==='income'?'active income':''}" onclick="setLedgerType('income')">收入</button>
+    </div>
+    <div class="field mt-12"><label>金额（元）</label><input id="fAmount" type="number" inputmode="decimal" placeholder="0.00" value="${esc(ledgerAmount)}" oninput="ledgerAmount=this.value" style="font-size:22px;font-weight:700"></div>
+    <div class="field"><label>类型</label><div class="chip-row">
+      ${kindCats.map(c=>`<span class="chip ${ledgerCat===c.name?'active':''}" onclick="setLedgerCat('${esc(c.name)}')">${esc(c.icon||'')}${esc(c.name)}</span>`).join('')}
+      <span class="chip" style="color:var(--accent)" onclick="openAddCat()">＋ 自定义</span>
+    </div></div>
+    ${ledgerType==='expense'?`<div class="field"><label>受益人${set.defaultBeneficiary?`（留空用默认：${esc(set.defaultBeneficiary)}）`:''}</label><input id="fBen" placeholder="例如：美团 / 淘宝" value="${esc(ledgerBen)}" oninput="ledgerBen=this.value">${suggs.length?`<div class="chip-row mt-8">${suggs.map(b=>`<span class="chip ${ledgerBen===b?'sel':''}" onclick="ledgerBen='${esc(b)}';document.getElementById('fBen').value='${esc(b)}';this.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));this.classList.add('sel')">${esc(b)}</span>`).join('')}</div>`:''}</div>`:''}
+    <div class="field"><label>备注</label><input id="fNote" placeholder="可选" value="${esc(ledgerNote)}" oninput="ledgerNote=this.value"></div>
+    <div class="field"><label>${ledgerType==='expense'?'支出账户':'入账账户'}（可选）</label><select id="fAcct" onchange="ledgerAcct=this.value"><option value="">不关联账户</option>${expAccts.map(a=>`<option value="${a.id}" ${ledgerAcct===String(a.id)?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
+    <button class="btn primary block" onclick="saveTx()">保存${ledgerType==='expense'?'支出':'收入'}</button>`)
+}
+function setLedgerType(t){ledgerType=t;ledgerCat='';openAddTx()}
+function setLedgerCat(c){ledgerCat=c;openAddTx()}
+async function saveTx(){
+  const amount=yuan2fen(ledgerAmount)
+  if(!amount||amount<=0)return alert('请输入有效金额')
+  if(!ledgerCat)return alert('请选择类型')
+  const set=getSettings()
+  let ben=ledgerType==='expense'?ledgerBen:null
+  if(ledgerType==='expense'&&!ben&&set.defaultBeneficiary)ben=set.defaultBeneficiary
+  await put('transactions',{type:ledgerType,amount,category:ledgerCat,beneficiary:ben||null,note:ledgerNote||null,account_id:Number(ledgerAcct)||null,happened_at:nowLocal(),created_at:nowLocal()})
+  ledgerCat='';ledgerAmount='';ledgerBen='';ledgerNote='';ledgerAcct='';closeModal();renderLedger()
+}
+function openAddCat(){
+  showModal(`<div class="modal-head"><div class="modal-title">添加自定义类型</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>类型名称</label><input id="newCatName" placeholder="例如：宠物"></div>
+    <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveCat()">添加</button></div>`)
+  setTimeout(()=>document.getElementById('newCatName').focus(),50)
+}
+async function saveCat(){
+  const name=document.getElementById('newCatName').value.trim()
+  if(!name)return
+  const colors=['#0ea5a3','#f59e0b','#3b82f6','#ec4899','#8b5cf6','#06b6d4','#ef4444','#f97316','#84cc16','#64748b']
+  const c=await all('categories')
+  await put('categories',{name,kind:ledgerType,color:colors[c.length%colors.length],icon:'🏷️'})
+  ledgerCat=name;closeModal();openAddTx()
+}
+
+/* 编辑 / 删除消费明细 */
+async function openEditTx(id){
+  const t=await get('transactions',id)
+  editId=id;editType=t.type;editAmount=fen2yuan(t.amount).toFixed(2);editCat=t.category||'';editBen=t.beneficiary||'';editNote=t.note||''
+  renderEditTx()
+}
+async function renderEditTx(){
+  const d=await getData()
+  const kindCats=d.categories.filter(c=>c.kind===editType)
+  showModal(`
+    <div class="modal-head"><div class="modal-title">编辑明细</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="seg">
+      <button class="${editType==='expense'?'active expense':''}" onclick="editSetType('expense')">支出</button>
+      <button class="${editType==='income'?'active income':''}" onclick="editSetType('income')">收入</button>
+    </div>
+    <div class="field mt-12"><label>金额（元）</label><input id="eAmount" type="number" inputmode="decimal" value="${esc(editAmount)}" oninput="editAmount=this.value" style="font-size:22px;font-weight:700"></div>
+    <div class="field"><label>类型</label><div class="chip-row">
+      ${kindCats.map(c=>`<span class="chip ${editCat===c.name?'active':''}" onclick="editSetCat('${esc(c.name)}')">${esc(c.icon||'')}${esc(c.name)}</span>`).join('')}
+    </div></div>
+    ${editType==='expense'?`<div class="field"><label>受益人</label><input id="eBen" value="${esc(editBen)}" oninput="editBen=this.value"></div>`:''}
+    <div class="field"><label>备注</label><input id="eNote" value="${esc(editNote)}" oninput="editNote=this.value"></div>
+    <div class="flex spread mt-12">
+      <button class="btn danger" onclick="deleteTx()">删除</button>
+      <span class="flex"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveEditTx()">保存</button></span>
+    </div>`)
+}
+function editSetType(t){editType=t;editCat='';renderEditTx()}
+function editSetCat(c){editCat=c;renderEditTx()}
+async function saveEditTx(){
+  const amount=yuan2fen(editAmount)
+  if(!amount||amount<=0)return alert('请输入有效金额')
+  if(!editCat)return alert('请选择类型')
+  const t=await get('transactions',editId)
+  await put('transactions',{...t,type:editType,amount,category:editCat,beneficiary:editType==='expense'?(editBen||null):null,note:editNote||null})
+  closeModal();renderLedger()
+}
+async function deleteTx(){
+  if(!confirm('确定删除这条记录？'))return
+  await del('transactions',editId)
+  closeModal();renderLedger()
+}
+
+/* 消费结构 + 余额走势 侧边面板 */
+async function openBreakdown(){
+  const d=await getData()
+  const set=getSettings()
+  document.getElementById('sideRoot').innerHTML=`
+    <div class="side-mask" onclick="closeBreakdown()"></div>
+    <div class="side-panel">
+      <div class="side-head"><div class="title">消费结构 / 余额走势</div><button class="close-x" onclick="closeBreakdown()">✕</button></div>
+      <div class="side-body" id="sideBody">
+        <div class="seg" style="margin-bottom:12px">
+          <button class="${sideView==='structure'?'active':''}" onclick="sideView='structure';fillSideBody()">消费结构</button>
+          <button class="${sideView==='balance'?'active':''}" onclick="sideView='balance';fillSideBody()">余额走势</button>
+        </div>
+        <div id="sideContent"></div>
+      </div>
+    </div>`
+  requestAnimationFrame(()=>{document.querySelector('.side-mask').classList.add('show');document.querySelector('.side-panel').classList.add('show')})
+  fillSideBody()
+}
+async function fillSideBody(){
+  const el=document.getElementById('sideContent');if(!el)return
+  const d=await getData()
+  const set=getSettings()
+  if(sideView==='structure'){
+    const range=periodRange(ledgerDate,set.periodStartDay)
+    const bd=breakdown(d.transactions,range,breakdownBy)
+    const catMap={};d.categories.forEach(c=>catMap[c.name]=c.color)
+    const FALLBACK=['#0ea5a3','#f59e0b','#3b82f6','#ec4899','#8b5cf6','#06b6d4','#ef4444','#f97316','#84cc16','#64748b']
+    const chartData=bd.items.map((it,i)=>({name:it.name,value:it.total,color:breakdownBy==='category'?(catMap[it.name]||FALLBACK[i%FALLBACK.length]):FALLBACK[i%FALLBACK.length]}))
+    el.innerHTML=`
+      <div class="seg" style="margin-bottom:12px">
+        <button class="${breakdownBy==='category'?'active':''}" onclick="breakdownBy='category';fillSideBody()">按类型</button>
+        <button class="${breakdownBy==='beneficiary'?'active':''}" onclick="breakdownBy='beneficiary';fillSideBody()">按受益人</button>
+      </div>
+      <div class="muted" style="font-size:13px;margin-bottom:8px">本期共支出 ¥${fmtYuan(bd.grand)}</div>
+      ${chartData.length===0?'<div class="empty">本期还没有支出记录</div>':donutSVG(chartData)+`<div class="mt-8">${chartData.map(x=>`<div class="legend-row"><span><span class="legend-dot" style="background:${x.color}"></span>${esc(x.name)}</span><span style="font-weight:600">¥${fmtYuan(x.value)}</span></div>`).join('')}</div>`}`
+  }else{
+    const spans=[[7,'近7天'],[30,'近30天'],[90,'近90天'],[0,'全部']]
+    el.innerHTML=`
+      <div class="span-row" style="margin-bottom:12px">${spans.map(([d,l])=>`<button class="btn sm ${balanceSpan===d?'primary':''}" onclick="balanceSpan=${d};fillSideBody()">${l}</button>`).join('')}</div>
+      ${balanceLineSVG(d.transactions,balanceSpan)}`
+  }
+}
+function closeBreakdown(){
+  const m=document.querySelector('.side-mask'),p=document.querySelector('.side-panel')
+  if(m){m.classList.remove('show');p.classList.remove('show');setTimeout(()=>{document.getElementById('sideRoot').innerHTML=''},260)}
+}
+
+/* 设置 */
+function openSettings(){
+  const s=getSettings()
+  showModal(`<div class="modal-head"><div class="modal-title">设置</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>结余周期从每月几号开始（发工资/回报日）</label><input id="setDay" type="number" min="1" max="28" value="${s.periodStartDay}"></div>
+    <div class="field"><label>默认受益人（受益人为空时自动填入）</label><input id="setBen" value="${esc(s.defaultBeneficiary)}" placeholder="可选"></div>
+    <div class="muted" style="font-size:12px;margin-top:4px">例：工资每月 15 号发，就填 15，则「本期」为 15 号到下月 14 号。</div>
+    <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSettingsModal()">保存</button></div>`)
+  setTimeout(()=>document.getElementById('setDay').focus(),50)
+}
+function saveSettingsModal(){
+  const day=Math.min(28,Math.max(1,Number(document.getElementById('setDay').value)||1))
+  saveSettings({periodStartDay:day,defaultBeneficiary:document.getElementById('setBen').value.trim()})
+  closeModal();renderLedger();renderAssets()
+}
+
+/* ============ 资产页 ============ */
+const TYPE_META={cash:{label:'现金',icon:'💵'},savings:{label:'储蓄',icon:'🏦'},investment:{label:'投资',icon:'📈'},loan_out:{label:'借出',icon:'🤝'},loan_in:{label:'借债',icon:'🧾'},other:{label:'其他',icon:'📦'}}
+const STATUS_META={active:{label:'活跃',cls:'active'},settled:{label:'已结清',cls:'settled'},bad_debt:{label:'坏账',cls:'bad_debt'}}
+
+async function renderAssets(){
+  const d=await getData()
+  const accts=[...computeBalances(d).values()]
+  const sum=assetSummary(accts)
+  const loans=d.loans.sort((a,b)=>({active:0,settled:1,bad_debt:2}[a.status]-{active:0,settled:1,bad_debt:2}[b.status])||b.id-a.id)
+  const active=loans.filter(l=>l.status==='active'),settled=loans.filter(l=>l.status==='settled'),bad=loans.filter(l=>l.status==='bad_debt')
+  const tabList={active,settled,bad_debt:bad}[loanTab]||[]
+  const funding=accts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived)
+  const lineColors=['#0ea5a3','#3b82f6','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16']
+  const series=accts.filter(a=>a.snaps&&a.snaps.length).map((a,i)=>({name:a.name,color:lineColors[i%lineColors.length],points:a.snaps.map(s=>({date:s.recorded_at.slice(0,10),value:s.value}))}))
+  const returnRates={}
+  for(const a of accts){if(a.type!=='investment')continue;const base=a.initial_amount||(a.snaps&&a.snaps[0]&&a.snaps[0].value);if(base)returnRates[a.id]=(a.balance-base)/base}
+
+  document.getElementById('page-assets').innerHTML=`
+    <div class="stat-row" style="margin-top:0">
+      <div class="stat"><div class="label">总资产</div><div class="value">¥${fmtYuan(sum.total)}</div></div>
+      <div class="stat"><div class="label">投资款</div><div class="value accent">¥${fmtYuan(sum.byType.investment)}</div></div>
+      <div class="stat"><div class="label">借出</div><div class="value income">¥${fmtYuan(sum.byType.loan_out)}</div></div>
+      <div class="stat"><div class="label">借债</div><div class="value expense">¥${fmtYuan(Math.abs(sum.byType.loan_in||0))}</div></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">资产账户<span class="flex" style="margin-left:auto;gap:6px"><button class="btn sm" onclick="openTransfer()">转账</button><button class="btn sm primary" onclick="openAddAccount()">＋ 账户</button></span></div>
+        ${accts.filter(a=>!a.archived).map(a=>{const m=TYPE_META[a.type]||TYPE_META.other;const isLoan=!!a.loan;return `
+          <div class="acct-item">
+            <div class="acct-avatar">${m.icon}</div>
+            <div style="flex:1;min-width:0"><div style="font-weight:600">${esc(a.name)}</div>
+            <div class="muted" style="font-size:12px">${m.label}${isLoan&&a.loan.status?` · ${STATUS_META[a.loan.status].label}`:''}${a.type==='investment'&&returnRates[a.id]!=null?` <span style="color:var(--accent)">· 回报率 ${fmtPct(returnRates[a.id])}</span>`:''}</div></div>
+            <div style="text-align:right"><div style="font-weight:700;color:${a.balance<0?'var(--expense)':''}">¥${fmtYuan(a.balance)}</div>
+            <div class="acct-actions">${!isLoan?`<button class="btn sm" onclick="openSnapshot(${a.id})">更新</button>`:''}<button class="btn sm" onclick="openEditAccount(${a.id})">编辑</button><button class="btn sm danger" onclick="deleteAccount(${a.id})">删除</button></div></div>
+          </div>`}).join('')}
+      </div>
+      <div class="card">
+        <div class="card-title">借条记录<span class="flex" style="margin-left:auto;gap:6px"><button class="btn sm" onclick="openLoan('in')">＋ 借债</button><button class="btn sm primary" onclick="openLoan('out')">＋ 借出</button></span></div>
+        <div class="seg" style="margin-bottom:12px">
+          <button class="${loanTab==='active'?'active':''}" onclick="loanTab='active';renderAssets()">活跃（${active.length}）</button>
+          <button class="${loanTab==='settled'?'active':''}" onclick="loanTab='settled';renderAssets()">已结清（${settled.length}）</button>
+          <button class="${loanTab==='bad_debt'?'active':''}" onclick="loanTab='bad_debt';renderAssets()">坏账（${bad.length}）</button>
+        </div>
+        ${tabList.length===0?'<div class="empty">暂无记录</div>':tabList.map(l=>`
+          <div class="acct-item">
+            <div class="acct-avatar">${l.direction==='out'?'🤝':'🧾'}</div>
+            <div style="flex:1;min-width:0"><div style="font-weight:600">${esc(l.counterparty)}<span class="badge ${STATUS_META[l.status].cls}">${STATUS_META[l.status].label}</span></div>
+            <div class="muted" style="font-size:12px">本金 ¥${fmtYuan(l.principal)} · 年息 ${l.interest_rate||0}% · ${shortDate(l.lent_at)}${l.status==='active'?` · 应计利息 ¥${fmtYuan(l.accrued)}`:''}${(l.attachment_ids||[]).length?` · 📎×${l.attachment_ids.length}`:''}</div></div>
+            <div style="text-align:right"><div style="font-weight:700">¥${fmtYuan(l.status==='active'?(l.principal-(l.settled_amount||0)):(l.settled_amount||0))}</div>
+            ${(l.attachment_ids||[]).length?`<button class="btn sm" onclick="openAttachments(${l.id})">凭证</button>`:''}
+            ${l.status==='active'?`<span class="flex" style="gap:6px;margin-top:4px;justify-content:flex-end"><button class="btn sm" onclick="openRecover(${l.id})">收回</button><button class="btn sm danger" onclick="markBad(${l.id})">坏账</button></span>`:''}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">资产增长总览<span class="hint">在账户上点「更新」记录价值快照后生成曲线</span></div>
+      ${series.length===0?'<div class="empty">暂无价值曲线</div>':lineChartSVG(series,{height:220})}
+    </div>`
+}
+
+/* ---- 账户 ---- */
+function openAddAccount(){
+  showModal(`<div class="modal-head"><div class="modal-title">添加资产账户</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>账户名称</label><input id="aName" placeholder="例如：招商银行"></div>
+    <div class="field"><label>账户类型</label><select id="aType">${Object.entries(TYPE_META).map(([k,m])=>`<option value="${k}">${m.icon} ${m.label}</option>`).join('')}</select></div>
+    <div class="field"><label>初始金额（元，可选）</label><input id="aInit" type="number" inputmode="decimal" placeholder="0.00"></div>
+    <div class="field"><label>备注（可选）</label><input id="aNote"></div>
+    <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveAccount()">保存</button></div>`)
+  setTimeout(()=>document.getElementById('aName').focus(),50)
+}
+async function saveAccount(){
+  const name=document.getElementById('aName').value.trim();if(!name)return alert('请输入账户名称')
+  await put('accounts',{name,type:document.getElementById('aType').value,initial_amount:yuan2fen(document.getElementById('aInit').value||0),current_value:null,note:document.getElementById('aNote').value||null,archived:0,created_at:nowLocal()})
+  closeModal();renderAssets()
+}
+function openSnapshot(id){
+  get('accounts',id).then(a=>{
+    showModal(`<div class="modal-head"><div class="modal-title">更新价值 · ${esc(a.name)}</div><button class="close-x" onclick="closeModal()">✕</button></div>
+      <div class="field"><label>当前价值（元）</label><input id="sVal" type="number" inputmode="decimal" value="${a.current_value!=null?fen2yuan(a.current_value).toFixed(2):fen2yuan(a.balance).toFixed(2)}"></div>
+      <div class="field"><label>备注（可选）</label><input id="sNote" placeholder="例如：加仓 / 涨了"></div>
+      <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSnapshot(${id})">记录</button></div>`)
+    setTimeout(()=>{const e=document.getElementById('sVal');e.focus();e.select()},50)
+  })
+}
+async function saveSnapshot(id){
+  const val=yuan2fen(document.getElementById('sVal').value);if(val==null||val<0)return alert('请输入价值')
+  const a=await get('accounts',id)
+  await put('snapshots',{account_id:id,value:val,note:document.getElementById('sNote').value||null,recorded_at:nowLocal(),created_at:nowLocal()})
+  await put('accounts',{...a,current_value:val})
+  closeModal();renderAssets()
+}
+async function openEditAccount(id){
+  const a=await get('accounts',id)
+  const isLoan=a.type==='loan_out'||a.type==='loan_in'
+  if(isLoan){
+    const d=await getData();const l=d.loans.find(x=>x.account_id===id)
+    if(!l){closeModal();return}
+    showModal(`<div class="modal-head"><div class="modal-title">编辑借条</div><button class="close-x" onclick="closeModal()">✕</button></div>
+      <div class="field"><label>${l.direction==='out'?'借款人':'债主'}</label><input id="eName" value="${esc(l.counterparty)}"></div>
+      <div class="field-row"><div class="field"><label>本金（元）</label><input id="ePrincipal" type="number" inputmode="decimal" value="${fen2yuan(l.principal).toFixed(2)}"></div>
+      <div class="field"><label>年利率（%）</label><input id="eRate" type="number" inputmode="decimal" value="${l.interest_rate||0}"></div></div>
+      <div class="field-row"><div class="field"><label>${l.direction==='out'?'欠债时间':'借款时间'}</label><input id="eLent" type="date" value="${l.lent_at}"></div>
+      <div class="field"><label>到期日</label><input id="eDue" type="date" value="${l.due_at||''}"></div></div>
+      <div class="field"><label>备注</label><input id="eNote" value="${esc(l.note||'')}"></div>
+      <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveEditAccount(${id})">保存</button></div>`)
+  }else{
+    showModal(`<div class="modal-head"><div class="modal-title">编辑账户</div><button class="close-x" onclick="closeModal()">✕</button></div>
+      <div class="field"><label>账户名称</label><input id="eName" value="${esc(a.name)}"></div>
+      <div class="field"><label>账户类型</label><select id="eType">${Object.entries(TYPE_META).map(([k,m])=>`<option value="${k}" ${a.type===k?'selected':''}>${m.icon} ${m.label}</option>`).join('')}</select></div>
+      <div class="field"><label>初始金额（元）</label><input id="eInit" type="number" inputmode="decimal" value="${fen2yuan(a.initial_amount||0).toFixed(2)}"></div>
+      <div class="field"><label>当前价值（元，留空按流水自动算）</label><input id="eCur" type="number" inputmode="decimal" value="${a.current_value!=null?fen2yuan(a.current_value).toFixed(2):''}" placeholder="自动"></div>
+      <div class="field"><label>备注</label><input id="eNote" value="${esc(a.note||'')}"></div>
+      <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveEditAccount(${id})">保存</button></div>`)
+  }
+}
+async function saveEditAccount(id){
+  const a=await get('accounts',id)
+  const isLoan=a.type==='loan_out'||a.type==='loan_in'
+  const name=document.getElementById('eName').value.trim();if(!name)return alert('请输入名称')
+  if(isLoan){
+    const d=await getData();const l=d.loans.find(x=>x.account_id===id)
+    const principal=yuan2fen(document.getElementById('ePrincipal').value);if(!principal||principal<=0)return alert('请输入本金')
+    const initT=d.transfers.find(t=>l.direction==='out'?t.to_account_id===id:t.from_account_id===id)
+    if(initT)await put('transfers',{...initT,amount:principal})
+    await put('accounts',{...a,name})
+    await put('loans',{...l,counterparty:name,principal,interest_rate:Number(document.getElementById('eRate').value)||0,lent_at:document.getElementById('eLent').value||l.lent_at,due_at:document.getElementById('eDue').value||null,note:document.getElementById('eNote').value||null})
+  }else{
+    const cur=document.getElementById('eCur').value
+    await put('accounts',{...a,name,type:document.getElementById('eType').value,initial_amount:yuan2fen(document.getElementById('eInit').value||0),current_value:cur===''?null:yuan2fen(cur),note:document.getElementById('eNote').value||null})
+  }
+  closeModal();renderAssets()
+}
+async function deleteAccount(id){
+  const a=await get('accounts',id);if(!a)return
+  const d=await getData()
+  const hasLoan=d.loans.some(l=>l.account_id===id)
+  if(!confirm(`确定删除账户「${a.name}」？${hasLoan?'其关联的借条及凭证将一并删除。':''}相关转账/流水将清理。`))return
+  for(const s of d.snapshots)if(s.account_id===id)await del('snapshots',s.id)
+  for(const t of d.transfers)if(t.from_account_id===id||t.to_account_id===id)await del('transfers',t.id)
+  for(const t of d.transactions)if(t.account_id===id)await put('transactions',{...t,account_id:null})
+  for(const l of d.loans)if(l.account_id===id){for(const iid of (l.attachment_ids||[]))await del('images',iid);await del('loans',l.id)}
+  await del('accounts',id)
+  closeModal();renderAssets()
+}
+
+/* ---- 转账 ---- */
+function openTransfer(){
+  showModal(`<div class="modal-head"><div class="modal-title">账户转账</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>转出账户</label><select id="tFrom"></select></div>
+    <div class="field"><label>转入账户</label><select id="tTo"></select></div>
+    <div class="field"><label>金额（元）</label><input id="tAmt" type="number" inputmode="decimal" placeholder="0.00"></div>
+    <div class="field"><label>备注（可选）</label><input id="tNote"></div>
+    <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveTransfer()">转账</button></div>`)
+  getData().then(d=>{const opts=d.accounts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');document.getElementById('tFrom').innerHTML='<option value="">选择…</option>'+opts;document.getElementById('tTo').innerHTML='<option value="">选择…</option>'+opts})
+}
+async function saveTransfer(){
+  const amt=yuan2fen(document.getElementById('tAmt').value);if(!amt||amt<=0)return alert('请输入金额')
+  const from=Number(document.getElementById('tFrom').value)||null,to=Number(document.getElementById('tTo').value)||null
+  if(!from||!to)return alert('请选择账户');if(from===to)return alert('转出转入不能相同')
+  await put('transfers',{from_account_id:from,to_account_id:to,amount:amt,note:document.getElementById('tNote').value||null,transferred_at:nowLocal(),created_at:nowLocal()})
+  closeModal();renderAssets()
+}
+
+/* ---- 借条 ---- */
+let loanDir='out'
+function openLoan(dir){
+  loanDir=dir
+  showModal(`<div class="modal-head"><div class="modal-title">${dir==='out'?'新增借出':'新增借债'}</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div class="field"><label>${dir==='out'?'借款人':'债主'}</label><input id="lName" placeholder="姓名"></div>
+    <div class="field-row"><div class="field"><label>本金（元）</label><input id="lAmt" type="number" inputmode="decimal" placeholder="0.00"></div>
+    <div class="field"><label>年利率（%）</label><input id="lRate" type="number" inputmode="decimal" placeholder="0"></div></div>
+    <div class="field-row"><div class="field"><label>${dir==='out'?'欠债时间':'借款时间'}</label><input id="lDate" type="date" value="${todayStr()}"></div>
+    <div class="field"><label>到期日（可选）</label><input id="lDue" type="date"></div></div>
+    <div class="field"><label>${dir==='out'?'资金来源账户（从哪转出）':'资金去向账户（钱进哪里）'}</label><select id="lAcct"></select></div>
+    <div class="field"><label>备注（可选）</label><input id="lNote"></div>
+    <div class="field"><label>凭证图片（借条 / 合同拍照）</label><input type="file" accept="image/*" multiple onchange="pickLoanImages(event)"></div>
+    <div id="lImgs" class="thumb-row mt-8"></div>
+    <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveLoan()">保存</button></div>`)
+  getData().then(d=>{const opts=d.accounts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');document.getElementById('lAcct').innerHTML='<option value="">不关联</option>'+opts})
+}
+let loanImages=[]
+function pickLoanImages(e){
+  const files=[...e.target.files]
+  files.forEach(f=>{
+    const r=new FileReader()
+    r.onload=async()=>{const id=await put('images',{dataUrl:r.result,name:f.name});loanImages.push(id);document.getElementById('lImgs').innerHTML=loanImages.map(()=>`<img class="thumb" src="${r.result}">`).join('')}
+    r.readAsDataURL(f)
+  })
+}
+async function saveLoan(){
+  const name=document.getElementById('lName').value.trim();if(!name)return alert(loanDir==='out'?'请输入借款人':'请输入债主')
+  const principal=yuan2fen(document.getElementById('lAmt').value);if(!principal||principal<=0)return alert('请输入本金')
+  const acctId=await put('accounts',{name,type:loanDir==='out'?'loan_out':'loan_in',initial_amount:0,current_value:null,note:null,archived:0,created_at:nowLocal()})
+  await put('loans',{account_id:acctId,direction:loanDir,counterparty:name,principal,interest_rate:Number(document.getElementById('lRate').value)||0,interest_method:'simple',lent_at:document.getElementById('lDate').value||todayStr(),due_at:document.getElementById('lDue').value||null,status:'active',settled_amount:0,settled_at:null,note:document.getElementById('lNote').value||null,attachment_ids:loanImages,created_at:nowLocal()})
+  const related=Number(document.getElementById('lAcct').value)||null
+  if(related){
+    if(loanDir==='out')await put('transfers',{from_account_id:related,to_account_id:acctId,amount:principal,note:`借出给 ${name}`,transferred_at:document.getElementById('lDate').value||todayStr(),created_at:nowLocal()})
+    else await put('transfers',{from_account_id:acctId,to_account_id:related,amount:principal,note:`向 ${name} 借款`,transferred_at:document.getElementById('lDate').value||todayStr(),created_at:nowLocal()})
+  }
+  loanImages=[];closeModal();renderAssets()
+}
+function openRecover(id){
+  showModal(`<div class="modal-head"><div class="modal-title">收回借款</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    <div id="rInfo" class="muted" style="margin-bottom:12px"></div>
+    <div class="field"><label>本次收回金额（元）</label><input id="rAmt" type="number" inputmode="decimal"></div>
+    <div class="field"><label>资金回笼账户</label><select id="rAcct"></select></div>
+    <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveRecover(${id})">确认收回</button></div>`)
+  Promise.all([get('loans',id),getData()]).then(([l,d])=>{document.getElementById('rInfo').textContent=`本金 ¥${fmtYuan(l.principal)}，已收回 ¥${fmtYuan(l.settled_amount||0)}`;document.getElementById('rAmt').value=fen2yuan(l.principal-(l.settled_amount||0)).toFixed(2);const opts=d.accounts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived).map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');document.getElementById('rAcct').innerHTML='<option value="">选择…</option>'+opts})
+}
+async function saveRecover(id){
+  const l=await get('loans',id)
+  const amt=yuan2fen(document.getElementById('rAmt').value);if(!amt||amt<=0)return alert('请输入金额')
+  const to=Number(document.getElementById('rAcct').value);if(!to)return alert('请选择回笼账户')
+  const settled=(l.settled_amount||0)+amt,isFull=settled>=l.principal
+  await put('transfers',{from_account_id:l.account_id,to_account_id:to,amount:amt,note:'收回',transferred_at:nowLocal(),created_at:nowLocal()})
+  await put('loans',{...l,settled_amount:settled,status:isFull?'settled':'active',settled_at:isFull?nowLocal():null})
+  closeModal();renderAssets()
+}
+async function markBad(id){
+  const l=await get('loans',id)
+  if(!confirm(`确认将「${l.counterparty}」标记为坏账？标记后将从总资产剔除，但记录保留可统计。`))return
+  await put('loans',{...l,status:'bad_debt'})
+  renderAssets()
+}
+async function openAttachments(id){
+  const l=await get('loans',id)
+  const ids=l.attachment_ids||[]
+  const imgs=[]
+  for(const iid of ids){const img=await get('images',iid);if(img)imgs.push(img)}
+  showModal(`<div class="modal-head"><div class="modal-title">凭证 · ${esc(l.counterparty)}</div><button class="close-x" onclick="closeModal()">✕</button></div>
+    ${imgs.length===0?'<div class="empty">无图片</div>':imgs.map(i=>`<div class="mt-8"><img class="thumb lg" src="${i.dataUrl}"></div>`).join('')}`)
+}
+
+/* ---- 存储状态指示 / 迁移 ---- */
+function updateFooter(){
+  const f=document.querySelector('.footer')
+  if(!f)return
+  if(backend==='idb'){
+    f.innerHTML='存储：IndexedDB ✓（可存图片） · <a href="#" onclick="openBackup(event)" style="color:var(--accent)">导出备份</a> · <a href="#" onclick="openImport(event)" style="color:var(--accent)">导入</a>'
+  }else{
+    f.innerHTML='存储：本地备用（容量有限） · <a href="#" onclick="migrateToIdb(event)" style="color:var(--accent)">迁移到 IndexedDB</a> · <a href="#" onclick="openBackup(event)" style="color:var(--accent)">导出备份</a> · <a href="#" onclick="openImport(event)" style="color:var(--accent)">导入</a>'
+  }
+}
+async function migrateToIdb(e){
+  if(e)e.preventDefault()
+  try{
+    const tmp=await new Promise((res,rej)=>{
+      const r=indexedDB.open(DB_NAME,DB_VER)
+      r.onupgradeneeded=ev=>{const d=ev.target.result;STORES.forEach(n=>{if(!d.objectStoreNames.contains(n))d.createObjectStore(n,{keyPath:'id',autoIncrement:true})})}
+      r.onsuccess=()=>res(r.result)
+      r.onerror=()=>rej(r.error||new Error('idb open failed'))
+      r.onblocked=()=>rej(new Error('idb blocked'))
+    })
+    // 若 IndexedDB 已有数据，先确认，避免覆盖
+    let idbCount=0
+    for(const s of STORES){const r=tmp.transaction(s,'readonly').objectStore(s).count();await new Promise(res=>{r.onsuccess=()=>{idbCount+=r.result;res()}})}
+    if(idbCount>0 && !confirm('IndexedDB 中已有数据，迁移会与其合并（相同编号会覆盖）。建议先导出备份。是否继续？'))return
+    for(const s of STORES){
+      const data=localAll(s)
+      if(data.length){
+        const store=tmp.transaction(s,'readwrite').objectStore(s)
+        for(const rec of data)store.put(rec)
+      }
+    }
+    db=tmp;backend='idb'
+    STORES.forEach(s=>localStorage.removeItem(LKEY(s)))
+    alert('迁移完成！已切换到 IndexedDB，可正常存储图片凭证。')
+    updateFooter();renderLedger();renderAssets()
+  }catch(err){
+    alert('当前仍无法使用 IndexedDB：'+err.message+'。\n\n请改用「网址」方式访问（见下方说明）：托管到 GitHub Pages 等免费静态托管，或用本地服务器 http:// 访问。')
+  }
+}
+
+/* ---- 备份 / 导入 ---- */
+function openBackup(e){e.preventDefault();getData().then(async d=>{
+  const images=await all('images')
+  const payload={version:2,exported_at:nowLocal(),settings:getSettings(),categories:d.categories,accounts:d.accounts,loans:d.loans,transactions:d.transactions,transfers:d.transfers,snapshots:d.snapshots,images}
+  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'})
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Z8记账备份-${todayStr()}.json`;a.click()
+})}
+function openImport(e){
+  e.preventDefault()
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json'
+  inp.onchange=()=>{const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{importData(JSON.parse(r.result))}catch(err){alert('导入失败：文件格式不正确')}};r.readAsText(f)}
+  inp.click()
+}
+async function importData(p){
+  if(!p.categories)return alert('无效的备份文件')
+  if(!confirm('导入将覆盖当前全部数据，确定继续？'))return
+  for(const s of STORES)await clear(s)
+  if(p.settings)saveSettings(p.settings)
+  for(const c of p.categories||[])await put('categories',{...c})
+  for(const a of p.accounts||[])await put('accounts',{...a})
+  for(const l of p.loans||[])await put('loans',{...l})
+  for(const t of p.transactions||[])await put('transactions',{...t})
+  for(const t of p.transfers||[])await put('transfers',{...t})
+  for(const s of p.snapshots||[])await put('snapshots',{...s})
+  for(const i of p.images||[])await put('images',{...i})
+  alert('导入完成')
+  renderLedger();renderAssets()
+}
+
+/* ============ 启动 ============ */
+// PWA：仅在 https 或 localhost 下注册 Service Worker（file:// 会安全跳过）
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost' || location.hostname==='127.0.0.1')){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})})
+}
+(async function init(){
+  await initStorage()
+  await seedCats()
+  renderLedger()
+  updateFooter()
+})().catch(e=>{document.getElementById('page-ledger').innerHTML='<div class="card"><div class="empty">初始化失败：'+esc(e.message)+'<br><br>如果通过 file:// 打开且无法保存数据，请改用浏览器访问 http 地址。</div></div>'})
+</script>
+</body>
+</html>
