@@ -121,7 +121,7 @@ svg.chart{width:100%;height:auto;display:block}
 </main>
 <div id="modalRoot"></div>
 <div id="sideRoot"></div>
-<button class="fab" id="fab" onclick="openAddTx()">＋</button>
+<button class="fab" id="fab" onclick="fabOpenAdd()">＋</button>
 
 <script>
 /* ============ 存储层（IndexedDB，失败自动回退 localStorage） ============ */
@@ -180,7 +180,7 @@ function del(name,id){return backend==='idb'?idbDel(name,id):localDel(name,id)}
 function clear(name){return backend==='idb'?idbClear(name):localClear(name)}
 
 /* ============ 设置（localStorage） ============ */
-function getSettings(){try{return Object.assign({periodStartDay:1,defaultBeneficiary:''},JSON.parse(localStorage.getItem('z8-settings')||'{}'))}catch(e){return {periodStartDay:1,defaultBeneficiary:''}}}
+function getSettings(){try{return Object.assign({periodStartDay:1,defaultBeneficiary:'',defaultAccountId:null},JSON.parse(localStorage.getItem('z8-settings')||'{}'))}catch(e){return {periodStartDay:1,defaultBeneficiary:'',defaultAccountId:null}}}
 function saveSettings(s){localStorage.setItem('z8-settings',JSON.stringify(s))}
 
 /* ============ 工具 ============ */
@@ -195,6 +195,10 @@ function todayStr(){return fmtDate(new Date())}
 function shortDate(s){if(!s)return'';const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${Number(m[2])}月${Number(m[3])}日`:s}
 function timeOnly(s){return s?s.slice(11,16):''}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+// 时间字符串 "YYYY-MM-DD HH:MM:SS" ↔ datetime-local 输入值 "YYYY-MM-DDTHH:MM"
+function toLocalInput(s){return s?s.slice(0,16).replace(' ','T'):''}
+function fromLocalInput(s){return s?(s.replace('T',' ')+':00'):''}
+function nowHM(){const d=new Date();return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`}
 
 /* ============ 预置分类 ============ */
 const DEFAULT_CATS=[
@@ -217,7 +221,7 @@ async function getData(){
 function computeBalances(d){
   const m=new Map()
   for(const a of d.accounts){
-    let bal=a.initial_amount||0
+    let bal=(a.initial_amount||0)+(a.adjustment||0)
     for(const t of d.transfers){if(t.to_account_id===a.id)bal+=t.amount;if(t.from_account_id===a.id)bal-=t.amount}
     for(const t of d.transactions){if(t.account_id===a.id){bal+=t.type==='income'?t.amount:-t.amount}}
     m.set(a.id,{...a,flow_balance:bal,balance:bal,latest_snapshot:null,loan:null,snaps:null})
@@ -225,7 +229,8 @@ function computeBalances(d){
   for(const s of d.snapshots){const a=m.get(s.account_id);if(a){a.snaps=(a.snaps||[]);a.snaps.push(s)}}
   for(const a of m.values()){if(a.snaps&&a.snaps.length){a.snaps.sort((x,y)=>x.recorded_at.localeCompare(y.recorded_at)||x.id-y.id);a.latest_snapshot=a.snaps[a.snaps.length-1].value}}
   for(const l of d.loans){const a=m.get(l.account_id);if(a){a.loan=l;l.account=a;l.accrued=accruedInterest(l);const outstanding=l.principal-(l.settled_amount||0);a.balance=(l.status==='active')?(l.direction==='out'?outstanding:-outstanding):0}}
-  for(const a of m.values()){if(!a.loan && a.current_value!=null)a.balance=a.current_value}
+  // 投资账户用市值（current_value）
+  for(const a of m.values()){if(a.type==='investment'&&a.current_value!=null)a.balance=a.current_value}
   return m
 }
 function accruedInterest(l){const start=new Date(l.lent_at).getTime(),end=Date.now();const years=(end-start)/(365.25*24*3600*1000);return Math.max(0,Math.round((l.principal*(l.interest_rate||0)/100)*years))}
@@ -367,8 +372,8 @@ function balanceLineSVG(transactions,spanDays){
 let currentPage='ledger'
 let ledgerDate=todayStr()
 let ledgerType='expense', ledgerCat='', breakdownBy='category', loanTab='active', sideView='structure', balanceSpan=0
-let ledgerAmount='', ledgerBen='', ledgerNote='', ledgerAcct=''
-let editId=null, editType='expense', editAmount='', editCat='', editBen='', editNote=''
+let ledgerAmount='', ledgerBen='', ledgerNote='', ledgerAcct='', ledgerDateTime=''
+let editId=null, editType='expense', editAmount='', editCat='', editBen='', editNote='', editAcct='', editDateTime=''
 
 function switchPage(p){
   currentPage=p
@@ -391,7 +396,10 @@ async function renderLedger(){
   const cats=d.categories, tx=d.transactions
   const s=summary(tx,ledgerDate,set.periodStartDay)
   const iconMap={};cats.forEach(c=>{iconMap[c.name]=c.icon})
-  const dayTx=tx.filter(t=>t.happened_at.slice(0,10)===ledgerDate).sort((a,b)=>b.happened_at.localeCompare(a.happened_at)||b.id-a.id)
+  const acctName={};d.accounts.forEach(a=>{acctName[a.id]=a.name})
+  const dayTx=tx.filter(t=>t.happened_at.slice(0,10)===ledgerDate).map(t=>({kind:'tx',time:t.happened_at,...t}))
+  const dayTr=d.transfers.filter(t=>(t.transferred_at||'').slice(0,10)===ledgerDate).map(t=>({kind:'transfer',time:t.transferred_at,...t}))
+  const dayItems=[...dayTx,...dayTr].sort((a,b)=>b.time.localeCompare(a.time)||b.id-a.id)
   const plabel=set.periodStartDay===1?'本月结余':`本期结余（${set.periodStartDay}号起）`
 
   document.getElementById('page-ledger').innerHTML=`
@@ -411,23 +419,46 @@ async function renderLedger(){
       <div class="card-title">流水<span class="hint">点击条目可编辑/删除</span>
         <span class="flex" style="margin-left:auto;gap:6px">
           <button class="btn sm" onclick="shiftLedgerDay(-1)">‹</button>
-          <input type="date" value="${ledgerDate}" onchange="ledgerDate=this.value;renderLedger()" style="border:none;background:transparent;font-size:14px;font-weight:600;width:118px;text-align:center">
+          <input type="date" value="${ledgerDate}" onchange="ledgerDate=this.value;renderLedger()" style="border:none;background:transparent;font-size:14px;font-weight:600;width:110px;text-align:center">
           <button class="btn sm" onclick="shiftLedgerDay(1)">›</button>
           <button class="btn sm" onclick="ledgerDate=todayStr();renderLedger()">今天</button>
+          <button class="btn sm" onclick="openTransfer()">↔️转账</button>
         </span>
       </div>
-      ${dayTx.length===0?'<div class="empty">当天还没有记录</div>':dayTx.map(t=>`
-        <div class="tl-item" onclick="openEditTx(${t.id})">
-          <div class="tl-icon" style="background:${t.type==='expense'?'var(--expense-soft)':'var(--income-soft)'}">${iconMap[t.category]||(t.type==='expense'?'💸':'💰')}</div>
-          <div class="tl-main"><div class="tl-title">${esc(t.category)}<span class="cat"> ${esc(t.beneficiary||'')}</span></div>
-          <div class="tl-meta">${timeOnly(t.happened_at)}${t.account?' · '+esc(t.account.name):''}${t.note?' · '+esc(t.note):''}</div></div>
-          <div class="tl-amount ${t.type}">${t.type==='expense'?'-':'+'}¥${fmtYuan(t.amount)}</div>
-        </div>`).join('')}
+      ${dayItems.length===0?'<div class="empty">当天还没有记录</div>':dayItems.map(it=>{
+        if(it.kind==='transfer'){
+          return `
+        <div class="tl-item" onclick="delTransfer(${it.id})">
+          <div class="tl-icon" style="background:#eef2ff">↔️</div>
+          <div class="tl-main"><div class="tl-title">转账<span class="cat"> ${esc(acctName[it.from_account_id]||'')} → ${esc(acctName[it.to_account_id]||'')}</span></div>
+          <div class="tl-meta">${timeOnly(it.transferred_at)}${it.note?' · '+esc(it.note):''}</div></div>
+          <div class="tl-amount" style="color:var(--text-2)">¥${fmtYuan(it.amount)}</div>
+        </div>`
+        }
+        return `
+        <div class="tl-item" onclick="openEditTx(${it.id})">
+          <div class="tl-icon" style="background:${it.type==='expense'?'var(--expense-soft)':'var(--income-soft)'}">${iconMap[it.category]||(it.type==='expense'?'💸':'💰')}</div>
+          <div class="tl-main"><div class="tl-title">${esc(it.category)}<span class="cat"> ${esc(it.beneficiary||'')}</span></div>
+          <div class="tl-meta">${timeOnly(it.happened_at)}${acctName[it.account_id]?' · '+esc(acctName[it.account_id]):''}${it.note?' · '+esc(it.note):''}</div></div>
+          <div class="tl-amount ${it.type}">${it.type==='expense'?'-':'+'}¥${fmtYuan(it.amount)}</div>
+        </div>`
+      }).join('')}
     </div>`
+}
+async function delTransfer(id){
+  if(!confirm('确定删除这条转账记录？'))return
+  await del('transfers',id)
+  renderLedger()
 }
 function shiftLedgerDay(n){const d=new Date(ledgerDate+'T00:00:00');d.setDate(d.getDate()+n);ledgerDate=fmtDate(d);renderLedger()}
 
 /* 记一笔（悬浮按钮） */
+function fabOpenAdd(){
+  ledgerDateTime = ledgerDate + 'T' + nowHM()
+  const set=getSettings()
+  ledgerAcct = set.defaultAccountId || ''
+  openAddTx()
+}
 async function openAddTx(){
   const d=await getData()
   const set=getSettings()
@@ -447,6 +478,7 @@ async function openAddTx(){
     </div></div>
     ${ledgerType==='expense'?`<div class="field"><label>受益人${set.defaultBeneficiary?`（留空用默认：${esc(set.defaultBeneficiary)}）`:''}</label><input id="fBen" placeholder="例如：美团 / 淘宝" value="${esc(ledgerBen)}" oninput="ledgerBen=this.value">${suggs.length?`<div class="chip-row mt-8">${suggs.map(b=>`<span class="chip ${ledgerBen===b?'sel':''}" onclick="ledgerBen='${esc(b)}';document.getElementById('fBen').value='${esc(b)}';this.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));this.classList.add('sel')">${esc(b)}</span>`).join('')}</div>`:''}</div>`:''}
     <div class="field"><label>备注</label><input id="fNote" placeholder="可选" value="${esc(ledgerNote)}" oninput="ledgerNote=this.value"></div>
+    <div class="field"><label>时间</label><input id="fDateTime" type="datetime-local" value="${esc(ledgerDateTime)}" oninput="ledgerDateTime=this.value"></div>
     <div class="field"><label>${ledgerType==='expense'?'支出账户':'入账账户'}（可选）</label><select id="fAcct" onchange="ledgerAcct=this.value"><option value="">不关联账户</option>${expAccts.map(a=>`<option value="${a.id}" ${ledgerAcct===String(a.id)?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
     <button class="btn primary block" onclick="saveTx()">保存${ledgerType==='expense'?'支出':'收入'}</button>`)
 }
@@ -459,8 +491,11 @@ async function saveTx(){
   const set=getSettings()
   let ben=ledgerType==='expense'?ledgerBen:null
   if(ledgerType==='expense'&&!ben&&set.defaultBeneficiary)ben=set.defaultBeneficiary
-  await put('transactions',{type:ledgerType,amount,category:ledgerCat,beneficiary:ben||null,note:ledgerNote||null,account_id:Number(ledgerAcct)||null,happened_at:nowLocal(),created_at:nowLocal()})
-  ledgerCat='';ledgerAmount='';ledgerBen='';ledgerNote='';ledgerAcct='';closeModal();renderLedger()
+  let acct=Number(ledgerAcct)||null
+  if(ledgerType==='expense'&&!acct&&set.defaultAccountId)acct=Number(set.defaultAccountId)
+  const happened=fromLocalInput(ledgerDateTime)||nowLocal()
+  await put('transactions',{type:ledgerType,amount,category:ledgerCat,beneficiary:ben||null,note:ledgerNote||null,account_id:acct,happened_at:happened,created_at:nowLocal()})
+  ledgerCat='';ledgerAmount='';ledgerBen='';ledgerNote='';ledgerAcct='';ledgerDateTime='';closeModal();renderLedger()
 }
 function openAddCat(){
   showModal(`<div class="modal-head"><div class="modal-title">添加自定义类型</div><button class="close-x" onclick="closeModal()">✕</button></div>
@@ -480,12 +515,13 @@ async function saveCat(){
 /* 编辑 / 删除消费明细 */
 async function openEditTx(id){
   const t=await get('transactions',id)
-  editId=id;editType=t.type;editAmount=fen2yuan(t.amount).toFixed(2);editCat=t.category||'';editBen=t.beneficiary||'';editNote=t.note||''
+  editId=id;editType=t.type;editAmount=fen2yuan(t.amount).toFixed(2);editCat=t.category||'';editBen=t.beneficiary||'';editNote=t.note||'';editAcct=t.account_id||'';editDateTime=toLocalInput(t.happened_at)
   renderEditTx()
 }
 async function renderEditTx(){
   const d=await getData()
   const kindCats=d.categories.filter(c=>c.kind===editType)
+  const expAccts=d.accounts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived)
   showModal(`
     <div class="modal-head"><div class="modal-title">编辑明细</div><button class="close-x" onclick="closeModal()">✕</button></div>
     <div class="seg">
@@ -498,6 +534,8 @@ async function renderEditTx(){
     </div></div>
     ${editType==='expense'?`<div class="field"><label>受益人</label><input id="eBen" value="${esc(editBen)}" oninput="editBen=this.value"></div>`:''}
     <div class="field"><label>备注</label><input id="eNote" value="${esc(editNote)}" oninput="editNote=this.value"></div>
+    <div class="field"><label>时间</label><input id="eDateTime" type="datetime-local" value="${esc(editDateTime)}" oninput="editDateTime=this.value"></div>
+    <div class="field"><label>关联账户（可选）</label><select id="eAcct" onchange="editAcct=this.value"><option value="">不关联账户</option>${expAccts.map(a=>`<option value="${a.id}" ${editAcct===String(a.id)?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
     <div class="flex spread mt-12">
       <button class="btn danger" onclick="deleteTx()">删除</button>
       <span class="flex"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveEditTx()">保存</button></span>
@@ -510,7 +548,8 @@ async function saveEditTx(){
   if(!amount||amount<=0)return alert('请输入有效金额')
   if(!editCat)return alert('请选择类型')
   const t=await get('transactions',editId)
-  await put('transactions',{...t,type:editType,amount,category:editCat,beneficiary:editType==='expense'?(editBen||null):null,note:editNote||null})
+  const happened=fromLocalInput(editDateTime)||t.happened_at
+  await put('transactions',{...t,type:editType,amount,category:editCat,beneficiary:editType==='expense'?(editBen||null):null,note:editNote||null,account_id:Number(editAcct)||null,happened_at:happened})
   closeModal();renderLedger()
 }
 async function deleteTx(){
@@ -568,18 +607,21 @@ function closeBreakdown(){
 }
 
 /* 设置 */
-function openSettings(){
+async function openSettings(){
   const s=getSettings()
+  const d=await getData()
+  const expAccts=d.accounts.filter(a=>['cash','savings','other'].includes(a.type)&&!a.archived)
   showModal(`<div class="modal-head"><div class="modal-title">设置</div><button class="close-x" onclick="closeModal()">✕</button></div>
     <div class="field"><label>结余周期从每月几号开始（发工资/回报日）</label><input id="setDay" type="number" min="1" max="28" value="${s.periodStartDay}"></div>
     <div class="field"><label>默认受益人（受益人为空时自动填入）</label><input id="setBen" value="${esc(s.defaultBeneficiary)}" placeholder="可选"></div>
+    <div class="field"><label>默认支出账户（支出未选账户时自动用）</label><select id="setAcct"><option value="">无</option>${expAccts.map(a=>`<option value="${a.id}" ${String(s.defaultAccountId)===String(a.id)?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
     <div class="muted" style="font-size:12px;margin-top:4px">例：工资每月 15 号发，就填 15，则「本期」为 15 号到下月 14 号。</div>
     <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSettingsModal()">保存</button></div>`)
   setTimeout(()=>document.getElementById('setDay').focus(),50)
 }
 function saveSettingsModal(){
   const day=Math.min(28,Math.max(1,Number(document.getElementById('setDay').value)||1))
-  saveSettings({periodStartDay:day,defaultBeneficiary:document.getElementById('setBen').value.trim()})
+  saveSettings({periodStartDay:day,defaultBeneficiary:document.getElementById('setBen').value.trim(),defaultAccountId:Number(document.getElementById('setAcct').value)||null})
   closeModal();renderLedger();renderAssets()
 }
 
@@ -659,9 +701,12 @@ async function saveAccount(){
   closeModal();renderAssets()
 }
 function openSnapshot(id){
-  get('accounts',id).then(a=>{
+  getData().then(d=>{
+    const accts=[...computeBalances(d).values()]
+    const a=accts.find(x=>x.id===id)
+    if(!a)return
     showModal(`<div class="modal-head"><div class="modal-title">更新价值 · ${esc(a.name)}</div><button class="close-x" onclick="closeModal()">✕</button></div>
-      <div class="field"><label>当前价值（元）</label><input id="sVal" type="number" inputmode="decimal" value="${a.current_value!=null?fen2yuan(a.current_value).toFixed(2):fen2yuan(a.balance).toFixed(2)}"></div>
+      <div class="field"><label>当前价值（元）</label><input id="sVal" type="number" inputmode="decimal" value="${fen2yuan(a.balance).toFixed(2)}"></div>
       <div class="field"><label>备注（可选）</label><input id="sNote" placeholder="例如：加仓 / 涨了"></div>
       <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveSnapshot(${id})">记录</button></div>`)
     setTimeout(()=>{const e=document.getElementById('sVal');e.focus();e.select()},50)
@@ -671,7 +716,16 @@ async function saveSnapshot(id){
   const val=yuan2fen(document.getElementById('sVal').value);if(val==null||val<0)return alert('请输入价值')
   const a=await get('accounts',id)
   await put('snapshots',{account_id:id,value:val,note:document.getElementById('sNote').value||null,recorded_at:nowLocal(),created_at:nowLocal()})
-  await put('accounts',{...a,current_value:val})
+  if(a.type==='investment'){
+    await put('accounts',{...a,current_value:val})
+  }else{
+    // 非投资账户：更新价值 = 设余额为 val，之后流水继续在其上累加
+    const d=await getData()
+    let flow=(a.initial_amount||0)
+    for(const t of d.transfers){if(t.to_account_id===id)flow+=t.amount;if(t.from_account_id===id)flow-=t.amount}
+    for(const t of d.transactions){if(t.account_id===id)flow+=(t.type==='income'?t.amount:-t.amount)}
+    await put('accounts',{...a,adjustment:val-flow})
+  }
   closeModal();renderAssets()
 }
 async function openEditAccount(id){
@@ -689,11 +743,12 @@ async function openEditAccount(id){
       <div class="field"><label>备注</label><input id="eNote" value="${esc(l.note||'')}"></div>
       <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveEditAccount(${id})">保存</button></div>`)
   }else{
+    const isInv=a.type==='investment'
     showModal(`<div class="modal-head"><div class="modal-title">编辑账户</div><button class="close-x" onclick="closeModal()">✕</button></div>
       <div class="field"><label>账户名称</label><input id="eName" value="${esc(a.name)}"></div>
       <div class="field"><label>账户类型</label><select id="eType">${Object.entries(TYPE_META).map(([k,m])=>`<option value="${k}" ${a.type===k?'selected':''}>${m.icon} ${m.label}</option>`).join('')}</select></div>
-      <div class="field"><label>初始金额（元）</label><input id="eInit" type="number" inputmode="decimal" value="${fen2yuan(a.initial_amount||0).toFixed(2)}"></div>
-      <div class="field"><label>当前价值（元，留空按流水自动算）</label><input id="eCur" type="number" inputmode="decimal" value="${a.current_value!=null?fen2yuan(a.current_value).toFixed(2):''}" placeholder="自动"></div>
+      <div class="field"><label>${isInv?'投入本金':'初始金额'}（元）</label><input id="eInit" type="number" inputmode="decimal" value="${fen2yuan(a.initial_amount||0).toFixed(2)}"></div>
+      ${isInv?`<div class="field"><label>当前市值（元，留空按本金+流水）</label><input id="eCur" type="number" inputmode="decimal" value="${a.current_value!=null?fen2yuan(a.current_value).toFixed(2):''}" placeholder="自动"></div>`:''}
       <div class="field"><label>备注</label><input id="eNote" value="${esc(a.note||'')}"></div>
       <div class="flex spread mt-12"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="saveEditAccount(${id})">保存</button></div>`)
   }
@@ -710,8 +765,13 @@ async function saveEditAccount(id){
     await put('accounts',{...a,name})
     await put('loans',{...l,counterparty:name,principal,interest_rate:Number(document.getElementById('eRate').value)||0,lent_at:document.getElementById('eLent').value||l.lent_at,due_at:document.getElementById('eDue').value||null,note:document.getElementById('eNote').value||null})
   }else{
-    const cur=document.getElementById('eCur').value
-    await put('accounts',{...a,name,type:document.getElementById('eType').value,initial_amount:yuan2fen(document.getElementById('eInit').value||0),current_value:cur===''?null:yuan2fen(cur),note:document.getElementById('eNote').value||null})
+    const newType=document.getElementById('eType').value
+    if(newType==='investment'){
+      const cur=document.getElementById('eCur').value
+      await put('accounts',{...a,name,type:newType,initial_amount:yuan2fen(document.getElementById('eInit').value||0),current_value:cur===''?null:yuan2fen(cur),note:document.getElementById('eNote').value||null})
+    }else{
+      await put('accounts',{...a,name,type:newType,initial_amount:yuan2fen(document.getElementById('eInit').value||0),note:document.getElementById('eNote').value||null})
+    }
   }
   closeModal();renderAssets()
 }
@@ -719,9 +779,8 @@ async function deleteAccount(id){
   const a=await get('accounts',id);if(!a)return
   const d=await getData()
   const hasLoan=d.loans.some(l=>l.account_id===id)
-  if(!confirm(`确定删除账户「${a.name}」？${hasLoan?'其关联的借条及凭证将一并删除。':''}相关转账/流水将清理。`))return
+  if(!confirm(`确定删除账户「${a.name}」？${hasLoan?'其关联的借条及凭证将一并删除。':''}历史转账会保留（资金不会回流到其它账户）。`))return
   for(const s of d.snapshots)if(s.account_id===id)await del('snapshots',s.id)
-  for(const t of d.transfers)if(t.from_account_id===id||t.to_account_id===id)await del('transfers',t.id)
   for(const t of d.transactions)if(t.account_id===id)await put('transactions',{...t,account_id:null})
   for(const l of d.loans)if(l.account_id===id){for(const iid of (l.attachment_ids||[]))await del('images',iid);await del('loans',l.id)}
   await del('accounts',id)
